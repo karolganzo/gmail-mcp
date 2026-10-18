@@ -8,8 +8,11 @@ CONFIG_DIR = Path.home() / ".gmail-mcp"
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.json"
 TOKENS_DIR = CONFIG_DIR / "tokens"
 
-# Solo lectura: el servidor nunca puede enviar, borrar ni modificar correos.
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+# Solo lectura: el servidor nunca puede enviar, borrar ni modificar nada.
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/calendar.readonly",
+]
 
 
 def token_path(alias: str) -> Path:

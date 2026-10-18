@@ -1,4 +1,4 @@
-"""Servidor MCP de solo lectura para varias cuentas de Gmail.
+"""Servidor MCP de solo lectura para varias cuentas de Gmail y Google Calendar.
 
 Importante: en transporte stdio, stdout es el canal del protocolo.
 Nunca uses print() aquí; usa logging (va a stderr).
@@ -7,6 +7,7 @@ import logging
 
 from mcp.server import MCPServer
 
+from . import calendar_client as cc
 from . import gmail_client as gc
 from .config import list_aliases
 
@@ -65,6 +66,34 @@ def leer_hilo(cuenta: str, thread_id: str) -> list[dict]:
         thread_id: El thread_id devuelto por buscar_correos.
     """
     return gc.read_thread(cuenta, thread_id)
+
+
+@mcp.tool()
+def eventos_calendario(desde_dias: int = 0, hasta_dias: int = 1, cuenta: str = TODAS) -> dict:
+    """Lista eventos de Google Calendar en un rango de días (zona horaria local).
+
+    El rango va desde el inicio del día (hoy + desde_dias) hasta el inicio del
+    día (hoy + hasta_dias). Ejemplos: hoy = (0, 1); hoy y mañana = (0, 2);
+    próxima semana = (0, 7).
+
+    Args:
+        desde_dias: Días a partir de hoy donde empieza el rango (0 = hoy).
+        hasta_dias: Días a partir de hoy donde termina el rango (exclusivo).
+        cuenta: Alias de la cuenta, o "todas".
+    """
+    desde_dias = max(-30, min(desde_dias, 60))
+    hasta_dias = max(desde_dias + 1, min(hasta_dias, desde_dias + 31))
+    eventos, errores = [], {}
+    for alias in _targets(cuenta):
+        try:
+            eventos.extend(cc.list_events(alias, desde_dias, hasta_dias))
+        except gc.AccountError as e:
+            errores[alias] = str(e)
+        except Exception as e:
+            log.exception("Error leyendo calendario de %s", alias)
+            errores[alias] = f"Error de la API: {e}"
+    eventos.sort(key=lambda ev: ev["inicio"] or "")
+    return {"eventos": eventos, "errores": errores}
 
 
 def main() -> None:

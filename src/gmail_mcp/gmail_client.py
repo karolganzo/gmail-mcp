@@ -3,42 +3,16 @@ import base64
 import html
 import re
 
-from google.auth.exceptions import RefreshError
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from .config import SCOPES, list_aliases, token_path
+from .google_auth import AccountError, load_credentials  # noqa: F401 (re-export)
 
 MAX_BODY_CHARS = 4000
 
 
-class AccountError(Exception):
-    """Error que se le muestra a Claude con instrucciones claras."""
-
-
-def _load_credentials(alias: str) -> Credentials:
-    path = token_path(alias)
-    if alias not in list_aliases():
-        raise AccountError(f"La cuenta '{alias}' no existe. Disponibles: {', '.join(list_aliases()) or 'ninguna'}.")
-
-    creds = Credentials.from_authorized_user_file(str(path), SCOPES)
-    if creds.valid:
-        return creds
-    try:
-        creds.refresh(Request())
-    except RefreshError as e:
-        # En modo "Prueba", Google invalida los tokens cada 7 días.
-        raise AccountError(
-            f"El token de '{alias}' expiró. Re-autoriza con: uv run python -m gmail_mcp.auth {alias}"
-        ) from e
-    path.write_text(creds.to_json(), encoding="utf-8")
-    return creds
-
-
 def service(alias: str):
     # Se construye por llamada: así siempre usa un token vigente (y refrescado).
-    return build("gmail", "v1", credentials=_load_credentials(alias), cache_discovery=False)
+    return build("gmail", "v1", credentials=load_credentials(alias), cache_discovery=False)
 
 
 def _headers(msg: dict) -> dict[str, str]:
